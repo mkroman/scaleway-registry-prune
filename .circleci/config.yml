@@ -1,0 +1,77 @@
+version: 2.1
+
+jobs:
+  audit:
+    docker:
+      - image: circleci/rust:latest
+    steps:
+      - checkout
+      - run:
+          name: Set up Rust
+          command: |
+            rustup install stable
+            rustup default stable
+            rustup update
+            cargo install cargo-audit
+            rustc --version
+      - run:
+          name: Do audit
+          command: cargo audit
+
+  clippy:
+    docker:
+      - image: circleci/rust:latest
+    steps:
+      - checkout
+      - run:
+          name: Set up Rust
+          command: |
+            rustup install stable
+            rustup default stable
+            rustup update
+            rustup component add clippy
+            rustc --version
+            cargo clippy -V
+      - run:
+          name: Do lint check
+          command: cargo clippy -- -D clippy::all
+
+  test:
+    docker:
+      - image: circleci/rust:latest
+    steps:
+      - checkout
+      - run:
+          name: Run tests
+          command: cargo test
+
+  build:
+    docker:
+      - image: circleci/rust:latest
+    steps:
+      - checkout
+      - run:
+          name: Build in release mode
+          command: cargo build --release
+
+workflows:
+  version: 2
+
+  build-test:
+    jobs:
+      - audit:
+          filters:
+            tags:
+              only: /.*/
+      - clippy:
+          filters:
+            tags:
+              only: /.*/
+      - test:
+          filters:
+            tags:
+              only: /.*/
+      - build:
+          filters:
+            tags:
+              only: /.*/
