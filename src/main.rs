@@ -92,9 +92,12 @@ async fn main() -> Result<(), Error> {
         .filter(|image| image.namespace_id() == namespace.id())
         .collect::<Vec<&scaleway::Image>>();
 
-    if let Some(image) = images.iter().find(|img| img.name() == image_name) {
-        println!("Operating on image: {:?}", image);
-    }
+    let image = images
+        .iter()
+        .find(|img| img.name() == image_name)
+        .ok_or_else(|| Error::NoSuchImage)?;
+
+    println!("Operating on image: {:?}", image);
 
     Ok(())
 }
