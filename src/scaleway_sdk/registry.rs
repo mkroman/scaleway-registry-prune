@@ -1,15 +1,14 @@
 use serde::Deserialize;
 
-use crate::Error;
+use crate::scaleway_sdk::Error;
 use std::time::Duration;
 
-pub struct Registry<'a> {
-    client: &'a Client,
-}
+const DEFAULT_API_ENDPOINT: &'static str = "https://api.scaleway.com/registry/v1";
 
-pub struct Client {
+pub struct Registry {
     client: reqwest::Client,
     region: String,
+    endpoint: String,
     auth_token: String,
 }
 
@@ -31,6 +30,7 @@ pub struct Namespace {
     image_count: usize,
 }
 
+#[allow(dead_code)]
 impl Namespace {
     /// Returns the unique id of the namespace
     pub fn id(&self) -> &str {
@@ -48,11 +48,13 @@ impl Namespace {
     /// [`Registry::namespace`]
     ///
     /// [`Registry::namespace`]: struct.Registry.html#method.namespace
+    #[allow(dead_code)]
     pub fn size(&self) -> Option<usize> {
         self.size
     }
 
     /// Returns the user-defined description of the namespace
+    #[allow(dead_code)]
     pub fn description(&self) -> &str {
         &self.description
     }
@@ -125,6 +127,7 @@ pub struct Image {
     tags: Vec<String>,
 }
 
+#[allow(dead_code)]
 impl Image {
     /// Returns id
     pub fn id(&self) -> &str {
@@ -182,10 +185,29 @@ struct ErrorMessage {
     message: String,
 }
 
-impl<'a> Registry<'a> {
+impl Registry {
+    pub fn new(auth_token: String, region: String) -> Self {
+        let client = reqwest::ClientBuilder::new()
+            .timeout(Duration::from_secs(30))
+            .build()
+            .unwrap();
+
+        Registry {
+            client,
+            endpoint: format!("{}/regions/{}", DEFAULT_API_ENDPOINT, region),
+            auth_token,
+            region,
+        }
+    }
+
+    pub fn endpoint(mut self, url: &str) -> Self {
+        self.endpoint = url.to_string();
+        self
+    }
+
     /// Returns a list of namespaces the user has access to
     pub async fn namespaces(&self) -> Result<Vec<Namespace>, Error> {
-        let res = self.client.get("/namespaces").send().await?;
+        let res = self.get("/namespaces").send().await?;
 
         if res.status().is_success() {
             res.json::<NamespaceList>()
@@ -216,7 +238,7 @@ impl<'a> Registry<'a> {
 
     /// Returns a list of all images accessible to the user
     pub async fn images(&self) -> Result<Vec<Image>, Error> {
-        let res = self.client.get("/images").send().await?;
+        let res = self.get("/images").send().await?;
 
         if res.status().is_success() {
             res.json::<ImageList>()
@@ -228,33 +250,10 @@ impl<'a> Registry<'a> {
             Err(Error::ApiError(err.message))
         }
     }
-}
-
-impl<'a> Client {
-    /// Returns a new client with a given `auth_token` that operates in `region`
-    pub fn new(auth_token: String, region: String) -> Self {
-        let client = reqwest::ClientBuilder::new()
-            .timeout(Duration::from_secs(30))
-            .build()
-            .unwrap();
-
-        Client {
-            client,
-            auth_token,
-            region,
-        }
-    }
-
-    pub fn registry(&self) -> Registry {
-        Registry { client: self }
-    }
 
     pub fn get(&self, path: &str) -> reqwest::RequestBuilder {
         self.client
-            .get(&format!(
-                "https://api.scaleway.com/registry/v1/regions/{}{}",
-                self.region, path
-            ))
+            .get(&format!("{}{}", self.endpoint, path))
             .header("X-Auth-Token", &self.auth_token)
     }
 }
