@@ -1,5 +1,10 @@
 use clap::{crate_authors, crate_name, crate_version, App, Arg};
+use futures::future::TryFutureExt;
+
+mod error;
 mod scaleway;
+
+pub use error::Error;
 
 fn parse_image_argument(arg: &str) -> Option<(&str, &str)> {
     let mut parts = arg.splitn(2, '/');
@@ -18,11 +23,12 @@ fn parse_image_argument(arg: &str) -> Option<(&str, &str)> {
 
 fn validate_image_arg(arg: String) -> Result<(), String> {
     parse_image_argument(&arg)
-        .ok_or("Must be specified in the format `<namespace>/<image>'".to_owned())
+        .ok_or_else(|| "Must be specified in the format `<namespace>/<image>'".to_owned())
         .map(|_| ())
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let matches = App::new(crate_name!())
         .version(crate_version!())
         .author(crate_authors!())
@@ -42,6 +48,13 @@ fn main() {
                 .help("Keep the last n versions"),
         )
         .arg(
+            Arg::with_name("region")
+                .long("region")
+                .help("The target region")
+                .env("SCW_REGION")
+                .required(true),
+        )
+        .arg(
             Arg::with_name("token")
                 .long("scw-token")
                 .env("SCW_TOKEN")
@@ -57,9 +70,16 @@ fn main() {
         )
         .get_matches();
 
-    let scw_token = matches.value_of("token").expect("token missing");
+    let region = matches.value_of("region").expect("missing region");
+    let scw_token = matches.value_of("token").expect("missing token");
+
+    let client = scaleway::Client::new(scw_token.to_owned(), region.to_owned());
 
     if let Some((namespace, image)) = parse_image_argument(matches.value_of("IMAGE").unwrap()) {
+        let registry = client.registry(namespace.to_owned());
+        let namespaces = registry.namespaces().await;
+
+        println!("namespaces: {:?}", namespaces);
         println!("namespace: {} image: {}", namespace, image);
     }
 }
