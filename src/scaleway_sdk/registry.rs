@@ -3,7 +3,7 @@ use serde::Deserialize;
 use crate::scaleway_sdk::Error;
 use std::time::Duration;
 
-const DEFAULT_API_ENDPOINT: &'static str = "https://api.scaleway.com/registry/v1";
+static DEFAULT_API_ENDPOINT: &str = "https://api.scaleway.com/registry/v1";
 
 pub struct Registry {
     client: reqwest::Client,
