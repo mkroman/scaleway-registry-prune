@@ -1,7 +1,7 @@
 mod support;
 use support::*;
 
-use scaleway_registry_prune::scaleway_sdk::registry;
+use scaleway_sdk::registry;
 
 #[tokio::test]
 async fn it_parses_namespace_list() {

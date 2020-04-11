@@ -814,18 +814,9 @@ version = "0.0.0"
 dependencies = [
  "clap",
  "env_logger",
- "humantime 2.0.0",
- "log",
- "scaleway_sdk",
- "tokio",
-]
-
-[[package]]
-name = "scaleway_sdk"
-version = "0.1.0"
-dependencies = [
  "failure",
  "http",
+ "humantime 2.0.0",
  "hyper",
  "log",
  "reqwest",

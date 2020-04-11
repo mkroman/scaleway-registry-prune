@@ -1,4 +1,4 @@
-pub mod error;
+mod error;
 pub mod registry;
 
 pub use error::Error;
