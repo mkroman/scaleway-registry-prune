@@ -1,7 +1,9 @@
 use std::time::Duration;
 
-use crate::Error;
+use chrono::{DateTime, Utc};
 use serde::{de::DeserializeOwned, Deserialize};
+
+use crate::Error;
 
 static DEFAULT_API_ENDPOINT: &str = "https://api.scaleway.com/registry/v1";
 
@@ -23,11 +25,35 @@ pub struct Namespace {
     status_message: String,
     endpoint: String,
     is_public: bool,
-    // FIXME: Use proper datetime
-    created_at: String,
-    // FIXME: Use proper datetime
-    updated_at: String,
+    created_at: DateTime<Utc>,
+    updated_at: DateTime<Utc>,
     image_count: usize,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Image {
+    id: String,
+    name: String,
+    namespace_id: String,
+    status: String,
+    status_message: Option<String>,
+    visibility: String,
+    size: usize,
+    created_at: DateTime<Utc>,
+    updated_at: DateTime<Utc>,
+    tags: Vec<String>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct NamespaceList {
+    namespaces: Vec<Namespace>,
+    total_count: usize,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct ImageList {
+    images: Vec<Image>,
+    total_count: usize,
 }
 
 #[allow(dead_code)]
@@ -84,47 +110,19 @@ impl Namespace {
     }
 
     /// Returns created_at
-    pub fn created_at(&self) -> &str {
-        &self.created_at
+    pub fn created_at(&self) -> DateTime<Utc> {
+        self.created_at
     }
 
     /// Returns updated_at
-    pub fn updated_at(&self) -> &str {
-        &self.updated_at
+    pub fn updated_at(&self) -> DateTime<Utc> {
+        self.updated_at
     }
 
     /// Returns image_count
     pub fn image_count(&self) -> usize {
         self.image_count
     }
-}
-
-#[derive(Deserialize, Debug)]
-pub struct NamespaceList {
-    namespaces: Vec<Namespace>,
-    total_count: usize,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct ImageList {
-    images: Vec<Image>,
-    total_count: usize,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct Image {
-    id: String,
-    name: String,
-    namespace_id: String,
-    status: String,
-    status_message: Option<String>,
-    visibility: String,
-    size: usize,
-    // FIXME: Use proper datetime
-    created_at: String,
-    // FIXME: Use proper datetime
-    updated_at: String,
-    tags: Vec<String>,
 }
 
 #[allow(dead_code)]
@@ -165,13 +163,13 @@ impl Image {
     }
 
     /// Returns created_at
-    pub fn created_at(&self) -> &str {
-        &self.created_at
+    pub fn created_at(&self) -> DateTime<Utc> {
+        self.created_at
     }
 
     /// Returns updated_at
-    pub fn updated_at(&self) -> &str {
-        &self.updated_at
+    pub fn updated_at(&self) -> DateTime<Utc> {
+        self.updated_at
     }
 
     /// Returns tags
