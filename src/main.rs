@@ -1,9 +1,8 @@
 use clap::{crate_authors, crate_name, crate_version, App, Arg};
 
-mod error;
-mod scaleway;
+pub mod scaleway_sdk;
 
-pub use error::Error;
+use scaleway_sdk::{registry, Error};
 
 fn parse_image_argument(arg: &str) -> Option<(&str, &str)> {
     let mut parts = arg.splitn(2, '/');
@@ -74,11 +73,10 @@ async fn main() -> Result<(), Error> {
     let region = matches.value_of("region").expect("missing region");
     let scw_token = matches.value_of("token").expect("missing token");
 
-    let client = scaleway::Client::new(scw_token.to_owned(), region.to_owned());
+    let registry = scaleway_sdk::Registry::new(scw_token.to_owned(), region.to_owned());
 
     let (namespace_name, image_name) =
         parse_image_argument(matches.value_of("IMAGE").unwrap()).unwrap();
-    let registry = client.registry();
 
     let namespace_vec = registry.namespaces().await?;
     let namespace = namespace_vec
@@ -90,7 +88,7 @@ async fn main() -> Result<(), Error> {
     let images = image_vec
         .iter()
         .filter(|image| image.namespace_id() == namespace.id())
-        .collect::<Vec<&scaleway::Image>>();
+        .collect::<Vec<&registry::Image>>();
 
     let image = images
         .iter()
