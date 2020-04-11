@@ -1,33 +1,10 @@
-[package]
-name = "scaleway-registry-prune"
-version = "0.0.0"
-authors = ["Mikkel Kroman <mk@maero.dk>"]
-edition = "2018"
-license = "MIT OR Apache-2.0"
-description = "Command-line tool to clean up old images on your Scaleway Container Registry"
-repository = "https://github.com/mkroman/scaleway-registry-prune"
-readme = "README.md"
-keywords = ["scaleway", "container", "registry"]
-categories = ["development-tools"]
+[workspace]
 
-[dependencies]
-clap = "2.33"
-reqwest = { version = "0.10.4", features = ["json"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-tokio = { version = "0.2", features = ["full"] }
-humantime = "2.0"
-failure = "0.1.7"
-log = "0.4.8"
-env_logger = "0.7.1"
+members = [
+  "scaleway_sdk",
+  "scaleway_registry_prune"
+]
 
 [profile.release]
 lto = "fat"
 codegen-units = 1
-
-[dev-dependencies]
-hyper = { version = "0.13.4", default-features = false, features = ["tcp", "stream"] }
-http = "0.2.1"
-
-[lib]
-path = "src/lib.rs"

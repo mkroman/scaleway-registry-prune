@@ -1,7 +1,7 @@
-use serde::Deserialize;
-
-use crate::scaleway_sdk::Error;
 use std::time::Duration;
+
+use crate::Error;
+use serde::Deserialize;
 
 static DEFAULT_API_ENDPOINT: &str = "https://api.scaleway.com/registry/v1";
 

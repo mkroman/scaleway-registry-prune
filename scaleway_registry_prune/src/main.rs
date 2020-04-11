@@ -1,8 +1,9 @@
 use clap::{crate_authors, crate_name, crate_version, App, Arg};
 
-pub mod scaleway_sdk;
-
-use scaleway_sdk::{registry, Error};
+use scaleway_sdk::{
+    registry::{self, Registry},
+    Error,
+};
 
 fn parse_image_argument(arg: &str) -> Option<(&str, &str)> {
     let mut parts = arg.splitn(2, '/');
@@ -73,7 +74,7 @@ async fn main() -> Result<(), Error> {
     let region = matches.value_of("region").expect("missing region");
     let scw_token = matches.value_of("token").expect("missing token");
 
-    let registry = scaleway_sdk::Registry::new(scw_token.to_owned(), region.to_owned());
+    let registry = Registry::new(scw_token.to_owned(), region.to_owned());
 
     let (namespace_name, image_name) =
         parse_image_argument(matches.value_of("IMAGE").unwrap()).unwrap();
