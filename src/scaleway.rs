@@ -5,7 +5,6 @@ use std::time::Duration;
 
 pub struct Registry<'a> {
     client: &'a Client,
-    namespace: String,
 }
 
 pub struct Client {
@@ -30,6 +29,72 @@ pub struct Namespace {
     // FIXME: Use proper datetime
     updated_at: String,
     image_count: usize,
+}
+
+impl Namespace {
+    /// Returns the unique id of the namespace
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    /// Returns the name of the namespace
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Returns the total size for all images in this namespace
+    ///
+    /// Note that the size is only present if the namespace is retrieved using
+    /// [`Registry::namespace`]
+    ///
+    /// [`Registry::namespace`]: struct.Registry.html#method.namespace
+    pub fn size(&self) -> Option<usize> {
+        self.size
+    }
+
+    /// Returns the user-defined description of the namespace
+    pub fn description(&self) -> &str {
+        &self.description
+    }
+
+    /// Returns the unique organization id
+    pub fn organization_id(&self) -> &str {
+        &self.organization_id
+    }
+
+    /// Returns the namespace status
+    pub fn status(&self) -> &str {
+        &self.status
+    }
+
+    /// Returns status_message
+    pub fn status_message(&self) -> &str {
+        &self.status_message
+    }
+
+    /// Returns endpoint
+    pub fn endpoint(&self) -> &str {
+        &self.endpoint
+    }
+
+    pub fn is_public(&self) -> bool {
+        self.is_public
+    }
+
+    /// Returns created_at
+    pub fn created_at(&self) -> &str {
+        &self.created_at
+    }
+
+    /// Returns updated_at
+    pub fn updated_at(&self) -> &str {
+        &self.updated_at
+    }
+
+    /// Returns image_count
+    pub fn image_count(&self) -> usize {
+        self.image_count
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -60,17 +125,73 @@ pub struct Image {
     tags: Vec<String>,
 }
 
-#[derive(Deserialize)]
+impl Image {
+    /// Returns id
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    /// Returns name
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Returns namespace_id
+    pub fn namespace_id(&self) -> &str {
+        &self.namespace_id
+    }
+
+    /// Returns status
+    pub fn status(&self) -> &str {
+        &self.status
+    }
+
+    /// Returns status_message
+    pub fn status_message(&self) -> Option<&str> {
+        self.status_message.as_ref().map(|s| &s[..])
+    }
+
+    /// Returns visibility
+    pub fn visibility(&self) -> &str {
+        &self.visibility
+    }
+
+    /// Returns size
+    pub fn size(&self) -> usize {
+        self.size
+    }
+
+    /// Returns created_at
+    pub fn created_at(&self) -> &str {
+        &self.created_at
+    }
+
+    /// Returns updated_at
+    pub fn updated_at(&self) -> &str {
+        &self.updated_at
+    }
+
+    /// Returns tags
+    pub fn tags(&self) -> &Vec<String> {
+        &self.tags
+    }
+}
+
+#[derive(Deserialize, Debug)]
 struct ErrorMessage {
     message: String,
 }
 
 impl<'a> Registry<'a> {
-    pub async fn namespaces(&self) -> Result<NamespaceList, Error> {
+    /// Returns a list of namespaces the user has access to
+    pub async fn namespaces(&self) -> Result<Vec<Namespace>, Error> {
         let res = self.client.get("/namespaces").send().await?;
 
         if res.status().is_success() {
-            res.json().await.map_err(Into::into)
+            res.json::<NamespaceList>()
+                .await
+                .map(|list| list.namespaces)
+                .map_err(Into::into)
         } else {
             let err = res.json::<ErrorMessage>().await?;
             Err(Error::ApiError(err.message))
@@ -94,11 +215,14 @@ impl<'a> Registry<'a> {
     }
 
     /// Returns a list of all images accessible to the user
-    pub async fn images(&self) -> Result<ImageList, Error> {
+    pub async fn images(&self) -> Result<Vec<Image>, Error> {
         let res = self.client.get("/images").send().await?;
 
         if res.status().is_success() {
-            res.json().await.map_err(Into::into)
+            res.json::<ImageList>()
+                .await
+                .map(|list| list.images)
+                .map_err(Into::into)
         } else {
             let err = res.json::<ErrorMessage>().await?;
             Err(Error::ApiError(err.message))
@@ -121,11 +245,8 @@ impl<'a> Client {
         }
     }
 
-    pub fn registry(&self, namespace: String) -> Registry {
-        Registry {
-            client: self,
-            namespace,
-        }
+    pub fn registry(&self) -> Registry {
+        Registry { client: self }
     }
 
     pub fn get(&self, path: &str) -> reqwest::RequestBuilder {

@@ -1,5 +1,4 @@
 use clap::{crate_authors, crate_name, crate_version, App, Arg};
-use futures::future::TryFutureExt;
 
 mod error;
 mod scaleway;
@@ -28,7 +27,9 @@ fn validate_image_arg(arg: String) -> Result<(), String> {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Error> {
+    env_logger::init();
+
     let matches = App::new(crate_name!())
         .version(crate_version!())
         .author(crate_authors!())
@@ -75,13 +76,30 @@ async fn main() {
 
     let client = scaleway::Client::new(scw_token.to_owned(), region.to_owned());
 
-    if let Some((namespace, image)) = parse_image_argument(matches.value_of("IMAGE").unwrap()) {
-        let registry = client.registry(namespace.to_owned());
-        let namespaces = registry.namespaces().await;
+    let (namespace_name, image_name) =
+        parse_image_argument(matches.value_of("IMAGE").unwrap()).unwrap();
+    let registry = client.registry();
 
-        println!("namespaces: {:?}", namespaces);
-        println!("namespace: {} image: {}", namespace, image);
-    }
+    let namespace_vec = registry.namespaces().await?;
+    let namespace = namespace_vec
+        .iter()
+        .find(|ns| ns.name() == namespace_name)
+        .ok_or_else(|| Error::NoSuchNamespace)?;
+
+    let image_vec = registry.images().await?;
+    let images = image_vec
+        .iter()
+        .filter(|image| image.namespace_id() == namespace.id())
+        .collect::<Vec<&scaleway::Image>>();
+
+    let image = images
+        .iter()
+        .find(|img| img.name() == image_name)
+        .ok_or_else(|| Error::NoSuchImage)?;
+
+    println!("Operating on image: {:?}", image);
+
+    Ok(())
 }
 
 #[cfg(test)]
