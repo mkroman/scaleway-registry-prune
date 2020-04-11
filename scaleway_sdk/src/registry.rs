@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use crate::Error;
-use serde::Deserialize;
+use serde::{de::DeserializeOwned, Deserialize};
 
 static DEFAULT_API_ENDPOINT: &str = "https://api.scaleway.com/registry/v1";
 
@@ -186,6 +186,7 @@ struct ErrorMessage {
 }
 
 impl Registry {
+    /// Creates a new `Registry` API instance
     pub fn new(auth_token: String, region: String) -> Self {
         let client = reqwest::ClientBuilder::new()
             .timeout(Duration::from_secs(30))
@@ -200,6 +201,7 @@ impl Registry {
         }
     }
 
+    /// Sets endpoint `url` by mutating self
     pub fn endpoint(mut self, url: &str) -> Self {
         self.endpoint = url.to_string();
         self
@@ -207,50 +209,40 @@ impl Registry {
 
     /// Returns a list of namespaces the user has access to
     pub async fn namespaces(&self) -> Result<Vec<Namespace>, Error> {
-        let res = self.get("/namespaces").send().await?;
-
-        if res.status().is_success() {
-            res.json::<NamespaceList>()
-                .await
-                .map(|list| list.namespaces)
-                .map_err(Into::into)
-        } else {
-            let err = res.json::<ErrorMessage>().await?;
-            Err(Error::ApiError(err.message))
-        }
+        self.get_deserialized::<NamespaceList>("/namespaces")
+            .await
+            .map(|x| x.namespaces)
     }
 
     /// Returns the namespace details for a given `namespace_id`
     pub async fn namespace(&self, namespace_id: &str) -> Result<Namespace, Error> {
-        let res = self
-            .client
-            .get(&format!("/namespaces/{}", namespace_id))
-            .send()
-            .await?;
-
-        if res.status().is_success() {
-            res.json().await.map_err(Into::into)
-        } else {
-            let err = res.json::<ErrorMessage>().await?;
-            Err(Error::ApiError(err.message))
-        }
+        self.get_deserialized::<Namespace>(&format!("/namespaces/{}", namespace_id))
+            .await
     }
 
     /// Returns a list of all images accessible to the user
     pub async fn images(&self) -> Result<Vec<Image>, Error> {
-        let res = self.get("/images").send().await?;
+        self.get_deserialized::<ImageList>("/images")
+            .await
+            .map(|x| x.images)
+    }
+
+    /// Requests the given `path` on the API endpoint and tries to deserialize
+    /// it as json into the type `D`.
+    async fn get_deserialized<D: DeserializeOwned>(&self, path: &str) -> Result<D, Error> {
+        let res = self.get(path).send().await?;
 
         if res.status().is_success() {
-            res.json::<ImageList>()
-                .await
-                .map(|list| list.images)
-                .map_err(Into::into)
+            res.json::<D>().await.map_err(Into::into)
         } else {
             let err = res.json::<ErrorMessage>().await?;
+
             Err(Error::ApiError(err.message))
         }
     }
 
+    /// Returns a prepared `RequestBuilder` that is ready to issue a GET request
+    /// to the given `path` and a `X-Auth-Token` header already set
     pub fn get(&self, path: &str) -> reqwest::RequestBuilder {
         self.client
             .get(&format!("{}{}", self.endpoint, path))
