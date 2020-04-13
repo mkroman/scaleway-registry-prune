@@ -1,3 +1,6 @@
+use std::ffi::OsString;
+use std::fmt::Display;
+use std::str::FromStr;
 use std::time::Duration;
 
 use clap::{crate_authors, crate_name, crate_version, App, Arg, ArgMatches};
@@ -48,9 +51,20 @@ fn validate_image_arg(arg: String) -> Result<(), String> {
         .map(|_| ())
 }
 
+fn validate_parsable<T>(arg: String) -> Result<(), String>
+where
+    T: FromStr,
+    <T as FromStr>::Err: Display,
+{
+    arg.as_str()
+        .parse::<T>()
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
 /// Attempts to retrieve information about the given `image` and checks if it's
 /// part of the given `namespace` before returning both, unless an error occurs
-async fn get_image_info(
+async fn get_namespace_and_image(
     registry: &Registry,
     namespace: &str,
     image: &str,
@@ -76,12 +90,25 @@ async fn get_image_info(
 fn parse_args(args: ArgMatches) -> Options {
     let (namespace, image) = parse_image_argument(args.value_of("IMAGE").unwrap()).unwrap();
 
+    let keep_within = args
+        .value_of("keep-within")
+        .map(|s| s.parse::<humantime::Duration>().unwrap().into());
+
+    let keep_last = args
+        .value_of("keep-last")
+        .map(|s| s.parse::<u64>().unwrap());
+
+    let filter = FilterOptions {
+        keep_within,
+        keep_last,
+    };
+
     Options {
         region: args.value_of("region").expect("missing region").to_string(),
         token: args.value_of("token").expect("missing token").to_string(),
         image: image.to_string(),
         namespace: namespace.to_string(),
-        filter: Default::default(),
+        filter: filter,
     }
 }
 
@@ -95,45 +122,47 @@ async fn main() -> Result<(), Error> {
         .about("Prunes scaleway container registries")
         .arg(
             Arg::with_name("keep-within")
-                .long("keep-within")
-                .value_name("duration")
                 .help(
                     "Keep versions that are newer than duration (e.g. 3d) relative to current time",
-                ),
+                )
+                .long("keep-within")
+                .validator(|s| validate_parsable::<humantime::Duration>(s))
+                .value_name("duration"),
         )
         .arg(
             Arg::with_name("keep-last")
+                .help("Keep the last n versions")
                 .long("keep-last")
-                .value_name("n")
-                .help("Keep the last n versions"),
+                .validator(|s| validate_parsable::<u64>(s))
+                .value_name("n"),
         )
         .arg(
             Arg::with_name("region")
-                .long("region")
-                .help("The target region")
                 .env("SCW_REGION")
-                .required(true),
+                .help("The target region")
+                .required(true)
+                .long("region"),
         )
         .arg(
             Arg::with_name("token")
-                .long("scw-token")
                 .env("SCW_TOKEN")
                 .help("Authentication token")
+                .long("scw-token")
                 .required(true),
         )
         .arg(
             Arg::with_name("IMAGE")
                 .index(1)
                 .required(true)
-                .value_name("NAMESPACE/IMAGE")
-                .validator(validate_image_arg),
+                .validator(validate_image_arg)
+                .value_name("NAMESPACE/IMAGE"),
         )
         .get_matches();
 
     let options = parse_args(matches);
 
     let registry = Registry::new(options.token, options.region);
-    let result = get_image_info(&registry, &options.namespace, &options.image).await;
+    let result = get_namespace_and_image(&registry, &options.namespace, &options.image).await;
 
     match result {
         Ok((_, image)) => {
