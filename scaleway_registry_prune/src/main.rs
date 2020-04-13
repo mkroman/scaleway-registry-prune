@@ -1,9 +1,25 @@
-use clap::{crate_authors, crate_name, crate_version, App, Arg};
+use std::time::Duration;
+
+use clap::{crate_authors, crate_name, crate_version, App, Arg, ArgMatches};
 
 use scaleway_sdk::{
     registry::{Image, Namespace, Registry},
     Error,
 };
+
+#[derive(Default)]
+struct FilterOptions {
+    keep_last: Option<u64>,
+    keep_within: Option<Duration>,
+}
+
+struct Options {
+    token: String,
+    region: String,
+    image: String,
+    namespace: String,
+    filter: FilterOptions,
+}
 
 /// Takes a string in the format `<namespace>/<image>` and returns an Option
 /// with a tuple in the format `(namespace, image)` unleess the input string is
@@ -46,7 +62,6 @@ async fn get_image_info(
         .ok_or_else(|| Error::NoSuchNamespace)?;
 
     let image_vec = registry.images().await?;
-
     let image = image_vec
         .iter()
         .filter(|x| x.namespace_id() == namespace.id())
@@ -54,6 +69,20 @@ async fn get_image_info(
         .ok_or_else(|| Error::NoSuchImage)?;
 
     Ok((namespace.clone(), image.clone()))
+}
+
+/// Parses the `args` and returns an `Options` struct with the relevant fields set based on the
+/// given args
+fn parse_args(args: ArgMatches) -> Options {
+    let (namespace, image) = parse_image_argument(args.value_of("IMAGE").unwrap()).unwrap();
+
+    Options {
+        region: args.value_of("region").expect("missing region").to_string(),
+        token: args.value_of("token").expect("missing token").to_string(),
+        image: image.to_string(),
+        namespace: namespace.to_string(),
+        filter: Default::default(),
+    }
 }
 
 #[tokio::main]
@@ -101,14 +130,10 @@ async fn main() -> Result<(), Error> {
         )
         .get_matches();
 
-    let region = matches.value_of("region").expect("missing region");
-    let scw_token = matches.value_of("token").expect("missing token");
-    let registry = Registry::new(scw_token.to_owned(), region.to_owned());
+    let options = parse_args(matches);
 
-    let (namespace_name, image_name) =
-        parse_image_argument(matches.value_of("IMAGE").unwrap()).unwrap();
-
-    let result = get_image_info(&registry, namespace_name, image_name).await;
+    let registry = Registry::new(options.token, options.region);
+    let result = get_image_info(&registry, &options.namespace, &options.image).await;
 
     match result {
         Ok((_, image)) => {
