@@ -29,7 +29,8 @@ pub struct Namespace {
     updated_at: DateTime<Utc>,
     image_count: usize,
 }
-#[derive(Deserialize, Debug)]
+
+#[derive(Deserialize, Debug, Clone)]
 pub struct Image {
     id: String,
     name: String,
@@ -55,7 +56,6 @@ pub struct ImageList {
     total_count: usize,
 }
 
-#[allow(dead_code)]
 impl Namespace {
     /// Returns the unique id of the namespace
     pub fn id(&self) -> &str {
@@ -73,13 +73,11 @@ impl Namespace {
     /// [`Registry::namespace`]
     ///
     /// [`Registry::namespace`]: struct.Registry.html#method.namespace
-    #[allow(dead_code)]
     pub fn size(&self) -> Option<usize> {
         self.size
     }
 
     /// Returns the user-defined description of the namespace
-    #[allow(dead_code)]
     pub fn description(&self) -> &str {
         &self.description
     }
@@ -124,7 +122,6 @@ impl Namespace {
     }
 }
 
-#[allow(dead_code)]
 impl Image {
     /// Returns id
     pub fn id(&self) -> &str {
