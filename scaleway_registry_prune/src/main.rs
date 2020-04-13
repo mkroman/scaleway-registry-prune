@@ -1,10 +1,13 @@
 use clap::{crate_authors, crate_name, crate_version, App, Arg};
 
 use scaleway_sdk::{
-    registry::{self, Registry},
+    registry::{Image, Namespace, Registry},
     Error,
 };
 
+/// Takes a string in the format `<namespace>/<image>` and returns an Option
+/// with a tuple in the format `(namespace, image)` unleess the input string is
+/// malformed
 fn parse_image_argument(arg: &str) -> Option<(&str, &str)> {
     let mut parts = arg.splitn(2, '/');
 
@@ -20,10 +23,37 @@ fn parse_image_argument(arg: &str) -> Option<(&str, &str)> {
     }
 }
 
+/// Validates that the given `namespace/image` string can be parsed by `parse_image_argument`
+///
+/// This is used by `clap` when parsing arguments
 fn validate_image_arg(arg: String) -> Result<(), String> {
     parse_image_argument(&arg)
         .ok_or_else(|| "Must be specified in the format `<namespace>/<image>'".to_owned())
         .map(|_| ())
+}
+
+/// Attempts to retrieve information about the given `image` and checks if it's
+/// part of the given `namespace` before returning both, unless an error occurs
+async fn get_image_info(
+    registry: &Registry,
+    namespace: &str,
+    image: &str,
+) -> Result<(Namespace, Image), Error> {
+    let namespace_vec = registry.namespaces().await?;
+    let namespace = namespace_vec
+        .iter()
+        .find(|ns| ns.name() == namespace)
+        .ok_or_else(|| Error::NoSuchNamespace)?;
+
+    let image_vec = registry.images().await?;
+
+    let image = image_vec
+        .iter()
+        .filter(|x| x.namespace_id() == namespace.id())
+        .find(|x| x.name() == image)
+        .ok_or_else(|| Error::NoSuchImage)?;
+
+    Ok((namespace.clone(), image.clone()))
 }
 
 #[tokio::main]
@@ -73,30 +103,21 @@ async fn main() -> Result<(), Error> {
 
     let region = matches.value_of("region").expect("missing region");
     let scw_token = matches.value_of("token").expect("missing token");
-
     let registry = Registry::new(scw_token.to_owned(), region.to_owned());
 
     let (namespace_name, image_name) =
         parse_image_argument(matches.value_of("IMAGE").unwrap()).unwrap();
 
-    let namespace_vec = registry.namespaces().await?;
-    let namespace = namespace_vec
-        .iter()
-        .find(|ns| ns.name() == namespace_name)
-        .ok_or_else(|| Error::NoSuchNamespace)?;
+    let result = get_image_info(&registry, namespace_name, image_name).await;
 
-    let image_vec = registry.images().await?;
-    let images = image_vec
-        .iter()
-        .filter(|image| image.namespace_id() == namespace.id())
-        .collect::<Vec<&registry::Image>>();
-
-    let image = images
-        .iter()
-        .find(|img| img.name() == image_name)
-        .ok_or_else(|| Error::NoSuchImage)?;
-
-    println!("Operating on image: {:?}", image);
+    match result {
+        Ok((_, image)) => {
+            println!("Image info: {:?}", image);
+        }
+        Err(e) => {
+            println!("Error when fetching image info: {}", e);
+        }
+    }
 
     Ok(())
 }

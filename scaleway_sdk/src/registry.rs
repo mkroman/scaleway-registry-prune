@@ -14,7 +14,7 @@ pub struct Registry {
     auth_token: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Namespace {
     id: String,
     name: String,
@@ -29,7 +29,6 @@ pub struct Namespace {
     updated_at: DateTime<Utc>,
     image_count: usize,
 }
-
 #[derive(Deserialize, Debug)]
 pub struct Image {
     id: String,

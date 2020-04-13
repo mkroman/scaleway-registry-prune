@@ -3,6 +3,10 @@ use support::*;
 
 use scaleway_sdk::registry;
 
+fn new_registry(endpoint: &str) -> registry::Registry {
+    registry::Registry::new("token".to_owned(), "region".to_owned()).endpoint(endpoint)
+}
+
 #[tokio::test]
 async fn it_parses_namespace_list() {
     let server = server::http(move |req| async move {
@@ -14,9 +18,7 @@ async fn it_parses_namespace_list() {
     });
 
     let endpoint = format!("http://{}", server.addr());
-    let registry =
-        registry::Registry::new("my_token".to_owned(), "my_region".to_owned()).endpoint(&endpoint);
-
+    let registry = new_registry(&endpoint);
     let namespaces = registry.namespaces().await.unwrap();
 
     assert_eq!(namespaces.len(), 1);
