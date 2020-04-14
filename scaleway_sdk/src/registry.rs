@@ -4,6 +4,7 @@ use chrono::{DateTime, Utc};
 use serde::{de::DeserializeOwned, Deserialize};
 
 use crate::Error;
+use crate::Status;
 
 static DEFAULT_API_ENDPOINT: &str = "https://api.scaleway.com/registry/v1";
 
@@ -21,7 +22,8 @@ pub struct Namespace {
     size: Option<usize>,
     description: String,
     organization_id: String,
-    status: String,
+    #[serde(deserialize_with = "Status::deserialize")]
+    status: Status,
     status_message: String,
     endpoint: String,
     is_public: bool,
@@ -35,7 +37,8 @@ pub struct Image {
     id: String,
     name: String,
     namespace_id: String,
-    status: String,
+    #[serde(deserialize_with = "Status::deserialize")]
+    status: Status,
     status_message: Option<String>,
     visibility: String,
     size: usize,
@@ -88,8 +91,8 @@ impl Namespace {
     }
 
     /// Returns the namespace status
-    pub fn status(&self) -> &str {
-        &self.status
+    pub fn status(&self) -> Status {
+        self.status.clone()
     }
 
     /// Returns status_message
@@ -139,8 +142,8 @@ impl Image {
     }
 
     /// Returns status
-    pub fn status(&self) -> &str {
-        &self.status
+    pub fn status(&self) -> Status {
+        self.status.clone()
     }
 
     /// Returns status_message
