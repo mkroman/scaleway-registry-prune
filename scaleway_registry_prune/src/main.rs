@@ -1,4 +1,3 @@
-use std::ffi::OsString;
 use std::fmt::Display;
 use std::str::FromStr;
 use std::time::Duration;
@@ -108,12 +107,11 @@ fn parse_args(args: ArgMatches) -> Options {
         token: args.value_of("token").expect("missing token").to_string(),
         image: image.to_string(),
         namespace: namespace.to_string(),
-        filter: filter,
+        filter,
     }
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Error> {
+async fn try_main() -> Result<(), Error> {
     env_logger::init();
 
     let matches = App::new(crate_name!())
@@ -126,14 +124,14 @@ async fn main() -> Result<(), Error> {
                     "Keep versions that are newer than duration (e.g. 3d) relative to current time",
                 )
                 .long("keep-within")
-                .validator(|s| validate_parsable::<humantime::Duration>(s))
+                .validator(validate_parsable::<humantime::Duration>)
                 .value_name("duration"),
         )
         .arg(
             Arg::with_name("keep-last")
                 .help("Keep the last n versions")
                 .long("keep-last")
-                .validator(|s| validate_parsable::<u64>(s))
+                .validator(validate_parsable::<u64>)
                 .value_name("n"),
         )
         .arg(
@@ -162,18 +160,23 @@ async fn main() -> Result<(), Error> {
     let options = parse_args(matches);
 
     let registry = Registry::new(options.token, options.region);
-    let result = get_namespace_and_image(&registry, &options.namespace, &options.image).await;
+    let (_, image) = get_namespace_and_image(&registry, &options.namespace, &options.image).await?;
 
-    match result {
-        Ok((_, image)) => {
-            println!("Image info: {:?}", image);
-        }
-        Err(e) => {
-            println!("Error when fetching image info: {}", e);
-        }
-    }
+    println!("Image info: {:?}", image);
 
     Ok(())
+}
+
+fn main() {
+    use tokio::runtime::Runtime;
+    let mut rt = Runtime::new().expect("unable to create async runtime");
+
+    match rt.block_on(try_main()) {
+        Ok(_) => {}
+        Err(e) => {
+            println!("There was an error: {}", e);
+        }
+    }
 }
 
 #[cfg(test)]
