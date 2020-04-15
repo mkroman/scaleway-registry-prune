@@ -4,4 +4,3 @@ mod status;
 
 pub use error::Error;
 pub use registry::Registry;
-pub use status::Status;

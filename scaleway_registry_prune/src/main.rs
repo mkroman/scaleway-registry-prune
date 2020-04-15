@@ -5,8 +5,8 @@ use std::time::Duration;
 use clap::{crate_authors, crate_name, crate_version, App, Arg, ArgMatches};
 
 use scaleway_sdk::{
-    registry::{Image, Namespace, Registry},
-    Error,
+    registry::{Image, Namespace},
+    Error, Registry,
 };
 
 #[derive(Default)]

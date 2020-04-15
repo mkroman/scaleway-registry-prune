@@ -4,7 +4,7 @@ use std::str::FromStr;
 use serde::{Deserialize, Deserializer};
 
 // Currently the status for namespaces and images share the same values.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Status {
     Unknown,
     Ready,

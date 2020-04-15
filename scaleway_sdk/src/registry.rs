@@ -3,8 +3,8 @@ use std::time::Duration;
 use chrono::{DateTime, Utc};
 use serde::{de::DeserializeOwned, Deserialize};
 
+pub use crate::status::Status;
 use crate::Error;
-use crate::Status;
 
 static DEFAULT_API_ENDPOINT: &str = "https://api.scaleway.com/registry/v1";
 
@@ -47,15 +47,65 @@ pub struct Image {
     tags: Vec<String>,
 }
 
+#[derive(Deserialize, Debug, Clone)]
+pub struct ImageTag {
+    id: String,
+    name: String,
+    image_id: String,
+    #[serde(deserialize_with = "Status::deserialize")]
+    status: Status,
+    digest: String,
+    created_at: DateTime<Utc>,
+    updated_at: DateTime<Utc>,
+}
+
+impl ImageTag {
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn image_id(&self) -> &str {
+        &self.image_id
+    }
+
+    pub fn status(&self) -> Status {
+        self.status.clone()
+    }
+
+    pub fn digest(&self) -> &str {
+        &self.digest
+    }
+
+    /// Returns created_at
+    pub fn created_at(&self) -> DateTime<Utc> {
+        self.created_at
+    }
+
+    /// Returns updated_at
+    pub fn updated_at(&self) -> DateTime<Utc> {
+        self.updated_at
+    }
+}
+
 #[derive(Deserialize, Debug)]
-pub struct NamespaceList {
+struct NamespaceListResponse {
     namespaces: Vec<Namespace>,
     total_count: usize,
 }
 
 #[derive(Deserialize, Debug)]
-pub struct ImageList {
+struct ImageListResponse {
     images: Vec<Image>,
+    total_count: usize,
+}
+
+#[derive(Deserialize, Debug)]
+struct ImageTagListResponse {
+    tags: Vec<ImageTag>,
     total_count: usize,
 }
 
@@ -206,7 +256,7 @@ impl Registry {
 
     /// Returns a list of namespaces the user has access to
     pub async fn namespaces(&self) -> Result<Vec<Namespace>, Error> {
-        self.get_deserialized::<NamespaceList>("/namespaces")
+        self.get_deserialized::<NamespaceListResponse>("/namespaces")
             .await
             .map(|x| x.namespaces)
     }
@@ -219,9 +269,16 @@ impl Registry {
 
     /// Returns a list of all images accessible to the user
     pub async fn images(&self) -> Result<Vec<Image>, Error> {
-        self.get_deserialized::<ImageList>("/images")
+        self.get_deserialized::<ImageListResponse>("/images")
             .await
             .map(|x| x.images)
+    }
+
+    /// Retrieves all tags for a given `image` and returns them
+    pub async fn image_tags(&self, image_id: &str) -> Result<Vec<ImageTag>, Error> {
+        self.get_deserialized::<ImageTagListResponse>(&format!("/images/{}/tags", image_id))
+            .await
+            .map(|x| x.tags)
     }
 
     /// Requests the given `path` on the API endpoint and tries to deserialize
