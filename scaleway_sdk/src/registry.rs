@@ -287,6 +287,7 @@ impl Registry {
 
     /// Returns a list of namespaces the user has access to
     pub async fn namespaces(&self) -> Result<Vec<Namespace>, Error> {
+        // FIXME: Implement proper page handling
         self.get_deserialized::<NamespaceListResponse>("/namespaces")
             .await
             .map(|x| x.namespaces)
@@ -300,6 +301,7 @@ impl Registry {
 
     /// Returns a list of all images accessible to the user
     pub async fn images(&self) -> Result<Vec<Image>, Error> {
+        // FIXME: Implement proper page handling
         self.get_deserialized::<ImageListResponse>("/images")
             .await
             .map(|x| x.images)
@@ -307,9 +309,44 @@ impl Registry {
 
     /// Retrieves all tags for a given `image` and returns them
     pub async fn image_tags(&self, image_id: &str) -> Result<Vec<ImageTag>, Error> {
-        self.get_deserialized::<ImageTagListResponse>(&format!("/images/{}/tags", image_id))
-            .await
-            .map(|x| x.tags)
+        // FIXME: Implement proper page handling
+        let res = self
+            .get(&format!("/images/{}/tags", image_id))
+            .query(&[("page_size", "100")])
+            .send()
+            .await?;
+
+        if res.status().is_success() {
+            res.json::<ImageTagListResponse>()
+                .await
+                .map_err(Into::into)
+                .map(|x| x.tags)
+        } else {
+            let err = res.json::<ErrorMessage>().await?;
+
+            Err(Error::ApiError(err.message))
+        }
+    }
+
+    /// Deletes an image with the given `image_tag` if it exists - the operation will fail if two
+    /// tags share the same digest unless `force` is true
+    pub async fn delete_image_by_tag(&self, tag_id: &str, force: bool) -> Result<ImageTag, Error> {
+        // FIXME: deal with force properly
+        let mut req = self.delete(&format!("/tags/{}", tag_id));
+
+        if force {
+            req = req.query(&[("force", "true")]);
+        }
+
+        let res = req.send().await?;
+
+        if res.status().is_success() {
+            res.json::<ImageTag>().await.map_err(Into::into)
+        } else {
+            let err = res.json::<ErrorMessage>().await?;
+
+            Err(Error::ApiError(err.message))
+        }
     }
 
     /// Requests the given `path` on the API endpoint and tries to deserialize
@@ -331,6 +368,14 @@ impl Registry {
     pub fn get(&self, path: &str) -> reqwest::RequestBuilder {
         self.client
             .get(&format!("{}{}", self.endpoint, path))
+            .header("X-Auth-Token", &self.auth_token)
+    }
+
+    /// Returns a prepared `RequestBuilder` that is ready to issue a DELETE request
+    /// to the given `path` and a `X-Auth-Token` header already set
+    pub fn delete(&self, path: &str) -> reqwest::RequestBuilder {
+        self.client
+            .delete(&format!("{}{}", self.endpoint, path))
             .header("X-Auth-Token", &self.auth_token)
     }
 }

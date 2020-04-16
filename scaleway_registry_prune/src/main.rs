@@ -3,6 +3,7 @@ use std::io::{self, Write};
 use std::str::FromStr;
 
 use clap::{crate_authors, crate_name, crate_version, App, Arg, ArgMatches};
+use indicatif::{ProgressBar, ProgressStyle};
 
 use scaleway_sdk::{
     registry::{Image, ImageTag, Namespace},
@@ -116,7 +117,7 @@ fn filter_image_tags<'a>(options: &Options, image_tags: &'a Vec<ImageTag>) -> Ve
             if let Some(n) = filter.keep_last {
                 (i as u64) > n
             } else {
-                false
+                true
             }
         })
         .map(|(_, x)| x)
@@ -205,11 +206,17 @@ async fn try_main() -> Result<(), Error> {
 
     if let Ok(answer) = read_answer_from_stdin() {
         if answer == "y" || answer == "Y" {
+            let ps = ProgressStyle::default_bar().template("{prefix} {wide_bar} {pos}/{len}");
+            let pb = ProgressBar::new(filtered_tags.len() as u64).with_style(ps);
+
             for tag in filtered_tags.iter() {
-                println!("Deleting {}", tag.name())
+                pb.set_prefix(&format!("{}:{}", image.name(), tag.name()));
+                registry.delete_image_by_tag(tag.id(), false).await?;
+                pb.inc(1);
             }
+
+            pb.finish();
         }
-        println!("Answer was: {}", answer);
     }
 
     Ok(())
