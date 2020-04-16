@@ -25,9 +25,6 @@
 ## Usage
 
 ```bash
-# Deletes all images older than 3 days
-% SCW_TOKEN=abcdef scaleway-registry-prune <namespace>/<image> --keep-within '3 days'
-
 # Deletes all images except for 5 most recent
 % SCW_TOKEN=abcdef scaleway-registry-prune <namespace>/<image> --keep-last 5
 ```
