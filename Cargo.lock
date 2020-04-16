@@ -845,6 +845,7 @@ version = "0.0.0"
 dependencies = [
  "clap",
  "env_logger",
+ "failure",
  "humantime 2.0.0",
  "log",
  "scaleway_sdk",

@@ -6,10 +6,6 @@ pub enum Error {
     ReqwestError(#[fail(cause)] reqwest::Error),
     #[fail(display = "API error: {}", _0)]
     ApiError(String),
-    #[fail(display = "No such namespace")]
-    NoSuchNamespace,
-    #[fail(display = "No such image")]
-    NoSuchImage,
 }
 
 impl From<reqwest::Error> for Error {

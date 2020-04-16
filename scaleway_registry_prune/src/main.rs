@@ -1,18 +1,20 @@
 use std::fmt::Display;
+use std::io::{self, Write};
 use std::str::FromStr;
-use std::time::Duration;
 
 use clap::{crate_authors, crate_name, crate_version, App, Arg, ArgMatches};
 
 use scaleway_sdk::{
-    registry::{Image, Namespace},
-    Error, Registry,
+    registry::{Image, ImageTag, Namespace},
+    Registry,
 };
+
+mod error;
+use error::Error;
 
 #[derive(Default)]
 struct FilterOptions {
     keep_last: Option<u64>,
-    keep_within: Option<Duration>,
 }
 
 struct Options {
@@ -89,18 +91,11 @@ async fn get_namespace_and_image(
 fn parse_args(args: ArgMatches) -> Options {
     let (namespace, image) = parse_image_argument(args.value_of("IMAGE").unwrap()).unwrap();
 
-    let keep_within = args
-        .value_of("keep-within")
-        .map(|s| s.parse::<humantime::Duration>().unwrap().into());
-
     let keep_last = args
         .value_of("keep-last")
         .map(|s| s.parse::<u64>().unwrap());
 
-    let filter = FilterOptions {
-        keep_within,
-        keep_last,
-    };
+    let filter = FilterOptions { keep_last };
 
     Options {
         region: args.value_of("region").expect("missing region").to_string(),
@@ -111,6 +106,34 @@ fn parse_args(args: ArgMatches) -> Options {
     }
 }
 
+fn filter_image_tags<'a>(options: &Options, image_tags: &'a Vec<ImageTag>) -> Vec<&'a ImageTag> {
+    let filter = &options.filter;
+
+    let image_tags = image_tags
+        .iter()
+        .enumerate()
+        .filter(|&(i, _x)| {
+            if let Some(n) = filter.keep_last {
+                (i as u64) > n
+            } else {
+                false
+            }
+        })
+        .map(|(_, x)| x)
+        .collect::<Vec<&ImageTag>>();
+
+    image_tags
+}
+
+fn read_answer_from_stdin() -> io::Result<String> {
+    let mut answer = String::new();
+
+    io::stdin().read_line(&mut answer)?;
+    answer = answer.trim().to_string();
+
+    Ok(answer)
+}
+
 async fn try_main() -> Result<(), Error> {
     env_logger::init();
 
@@ -118,15 +141,6 @@ async fn try_main() -> Result<(), Error> {
         .version(crate_version!())
         .author(crate_authors!())
         .about("Prunes scaleway container registries")
-        .arg(
-            Arg::with_name("keep-within")
-                .help(
-                    "Keep versions that are newer than duration (e.g. 3d) relative to current time",
-                )
-                .long("keep-within")
-                .validator(validate_parsable::<humantime::Duration>)
-                .value_name("duration"),
-        )
         .arg(
             Arg::with_name("keep-last")
                 .help("Keep the last n versions")
@@ -158,11 +172,45 @@ async fn try_main() -> Result<(), Error> {
         .get_matches();
 
     let options = parse_args(matches);
+    let registry = Registry::new(options.token.clone(), options.region.clone());
 
-    let registry = Registry::new(options.token, options.region);
+    // Find the image by its provided name, then verify that it's in the correct namespace,
+    // otherwise return an error
     let (_, image) = get_namespace_and_image(&registry, &options.namespace, &options.image).await?;
 
-    println!("Image info: {:?}", image);
+    // Get all tags for the image
+    let mut tags = registry.image_tags(image.id()).await?;
+
+    if tags.is_empty() {
+        return Err(Error::NoImageTagsError);
+    }
+
+    tags.sort_by(|a, b| a.updated_at().cmp(&b.updated_at()));
+    tags.reverse();
+
+    let filtered_tags = filter_image_tags(&options, &tags);
+
+    if filtered_tags.is_empty() {
+        return Err(Error::NoMatchingImageTagsError);
+    }
+
+    println!("This will delete the following images:");
+
+    for t in filtered_tags.iter() {
+        println!("{}:{}\t{}", image.name(), t.name(), t.updated_at());
+    }
+
+    print!("Do you want to continue? [y/N] ");
+    io::stdout().flush().unwrap();
+
+    if let Ok(answer) = read_answer_from_stdin() {
+        if answer == "y" || answer == "Y" {
+            for tag in filtered_tags.iter() {
+                println!("Deleting {}", tag.name())
+            }
+        }
+        println!("Answer was: {}", answer);
+    }
 
     Ok(())
 }

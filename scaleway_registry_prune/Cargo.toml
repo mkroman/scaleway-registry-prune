@@ -17,6 +17,7 @@ humantime = "2.0"
 log = "0.4.8"
 scaleway_sdk = { path = "../scaleway_sdk" }
 tokio = { version = "0.2", features = ["full"] }
+failure = "0.1.7"
 
 [[bin]]
 name = "scaleway-registry-prune"

@@ -1,4 +1,5 @@
-use std::time::Duration;
+use std::cmp::Ordering;
+use std::time::Duration as StdDuration;
 
 use chrono::{DateTime, Utc};
 use serde::{de::DeserializeOwned, Deserialize};
@@ -47,7 +48,7 @@ pub struct Image {
     tags: Vec<String>,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, Eq)]
 pub struct ImageTag {
     id: String,
     name: String,
@@ -88,6 +89,36 @@ impl ImageTag {
     /// Returns updated_at
     pub fn updated_at(&self) -> DateTime<Utc> {
         self.updated_at
+    }
+
+    /// Returns true if the given `date_time` is older than the last time this image tag was
+    /// updated
+    pub fn is_older_than(&self, date_time: DateTime<Utc>) -> bool {
+        self.updated_at < date_time
+    }
+
+    /// Returns true if the given `date_time` is newer than the last time this
+    /// tag was updated
+    pub fn is_newer_than(&self, date_time: DateTime<Utc>) -> bool {
+        self.updated_at >= date_time
+    }
+}
+
+impl Ord for ImageTag {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.updated_at.cmp(&other.updated_at)
+    }
+}
+
+impl PartialOrd for ImageTag {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for ImageTag {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
     }
 }
 
@@ -236,7 +267,7 @@ impl Registry {
     /// Creates a new `Registry` API instance
     pub fn new(auth_token: String, region: String) -> Self {
         let client = reqwest::ClientBuilder::new()
-            .timeout(Duration::from_secs(30))
+            .timeout(StdDuration::from_secs(30))
             .build()
             .unwrap();
 
