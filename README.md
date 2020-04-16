@@ -26,5 +26,5 @@
 
 ```bash
 # Deletes all images except for 5 most recent
-% SCW_TOKEN=abcdef scaleway-registry-prune <namespace>/<image> --keep-last 5
+% SCW_TOKEN=abcdef SCW_REGION=<nl-ams/fr-par> scaleway-registry-prune <namespace>/<image> --keep-last 5
 ```
