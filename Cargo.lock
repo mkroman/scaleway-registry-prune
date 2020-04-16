@@ -893,7 +893,7 @@ checksum = "535622e6be132bccd223f4bb2b8ac8d53cda3c7a6394944d3b2b33fb974f9d76"
 
 [[package]]
 name = "scaleway-registry-prune"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "clap",
  "env_logger",

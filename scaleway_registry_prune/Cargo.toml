@@ -1,6 +1,6 @@
 [package]
 name = "scaleway-registry-prune"
-version = "0.0.0"
+version = "0.1.0"
 authors = ["Mikkel Kroman <mk@maero.dk>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
