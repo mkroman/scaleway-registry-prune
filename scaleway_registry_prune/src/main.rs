@@ -107,10 +107,10 @@ fn parse_args(args: ArgMatches) -> Options {
     }
 }
 
-fn filter_image_tags<'a>(options: &Options, image_tags: &'a Vec<ImageTag>) -> Vec<&'a ImageTag> {
+fn filter_image_tags<'a>(options: &Options, image_tags: &'a [ImageTag]) -> Vec<&'a ImageTag> {
     let filter = &options.filter;
 
-    let image_tags = image_tags
+    image_tags
         .iter()
         .enumerate()
         .filter(|&(i, _x)| {
@@ -121,9 +121,7 @@ fn filter_image_tags<'a>(options: &Options, image_tags: &'a Vec<ImageTag>) -> Ve
             }
         })
         .map(|(_, x)| x)
-        .collect::<Vec<&ImageTag>>();
-
-    image_tags
+        .collect::<Vec<&ImageTag>>()
 }
 
 fn read_answer_from_stdin() -> io::Result<String> {
