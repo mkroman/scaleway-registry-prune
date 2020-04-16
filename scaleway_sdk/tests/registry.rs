@@ -30,7 +30,7 @@ async fn it_parses_image_tag_list() {
     let server = server::http(move |req| async move {
         assert_eq!(
             req.uri(),
-            "/images/b00f6b0a-cc14-4c21-843f-3acda6ebb001/tags"
+            "/images/b00f6b0a-cc14-4c21-843f-3acda6ebb001/tags?page_size=100"
         );
 
         http::Response::builder()
